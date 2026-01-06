@@ -46,12 +46,9 @@
                 <button class="btn btn-default" name="submit" value="automatic" type="submit" onclick="loader.style.display = 'block'">Lock it in!</button>
             </div>
         </form>
-        <h5 id="57"> Special E10 cheapest price found was <strong class='bold_balance'>{{ session['price0'] }}</strong> at <strong class='bold_balance'>{{ session['postcode0'] }}</strong></h5>
-        <h5 id="52"> Special Unleaded cheapest price found was <strong class='bold_balance'>{{ session['price1'] }}</strong> at <strong class='bold_balance'>{{ session['postcode1'] }}</strong></h5>
-        <h5 id="55"> Extra 95 cheapest price found was <strong class='bold_balance'>{{ session['price2'] }}</strong> at <strong class='bold_balance'>{{ session['postcode2'] }}</strong></h5>
-        <h5 id="56"> Supreme+ 98 cheapest price found was <strong class='bold_balance'>{{ session['price3'] }}</strong> at <strong class='bold_balance'>{{ session['postcode3'] }}</strong></h5>
-        <h5 id="53"> Special Diesel cheapest price found was <strong class='bold_balance'>{{ session['price4'] }}</strong> at <strong class='bold_balance'>{{ session['postcode4'] }}</strong></h5>
-        <h5 id="54"> Autogas cheapest price found was <strong class='bold_balance'>{{ session['price5'] }}</strong> at <strong class='bold_balance'>{{ session['postcode5'] }}</strong></h5>
+        {% for fuel_price in fuel_prices %}
+        <h5 id="{{ fuel_price.fuel_type }}"> {{ fuel_price.fuel_type }} cheapest price found was <strong class='bold_balance'>{{ fuel_price.price }}</strong> at <strong class='bold_balance'>{{ fuel_price.postcode }}</strong></h5>
+        {% endfor %}
     </div>
     <div id="manual">
         <form class="form-inline mt-2 mt-md-0" action="/lockin" method="POST">
