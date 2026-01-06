@@ -128,18 +128,26 @@ def login():
         email = str(request.form['email'])
 
         # Get the auth token
-        auth_token = functions.get_auth_token(email, password, session['DEVICE_ID'])
-        if "access_token" not in auth_token:
-            session['ErrorMessage'] = "Invalid email or password."
+        try:
+            auth_token = functions.get_auth_token(email, password, session['DEVICE_ID'])
+            if "access_token" not in auth_token:
+                session['ErrorMessage'] = "Invalid email or password."
+                return redirect(url_for('index'))
+        except httpx.ConnectError:
+            session['ErrorMessage'] = "Could not connect to the 7-Eleven API."
             return redirect(url_for('index'))
 
         session['access_token'] = auth_token['access_token']
         session['refresh_token'] = auth_token['refresh_token']
 
         # Get user profile information
-        headers = {'Authorization': 'Bearer ' + session['access_token']}
-        response = httpx.get(functions.BASE_URL + "user/profile", headers=headers)
-        profile_data = response.json()
+        try:
+            headers = {'Authorization': 'Bearer ' + session['access_token']}
+            response = httpx.get(functions.BASE_URL + "user/profile", headers=headers)
+            profile_data = response.json()
+        except httpx.ConnectError:
+            session['ErrorMessage'] = "Could not connect to the 7-Eleven API."
+            return redirect(url_for('index'))
 
         session['accountID'] = profile_data['id']
         session['firstName'] = profile_data['first_name']
@@ -147,9 +155,10 @@ def login():
 
         functions.lockedPrices()
 
-        # Download the stores.json file
-        with open('./stores.json', 'wb') as f:
-            f.write(functions.getStores())
+        # Download the stores.json file if it doesn't exist or is older than 1 week
+        if not os.path.exists('./stores.json') or os.path.getmtime('./stores.json') < time.time() - 60 * 60 * 24 * 7:
+            with open('./stores.json', 'wb') as f:
+                f.write(functions.getStores())
 
         # If we have ticked enable auto lock in, then set boolean to true
         if request.form.getlist('auto_lockin'):
@@ -322,7 +331,11 @@ def lockin():
 
 
             # Send the request
-            response = httpx.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=headers)
+            try:
+                response = httpx.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=headers)
+            except httpx.ConnectError:
+                session['ErrorMessage'] = "Could not connect to the 7-Eleven API."
+                return redirect(url_for('index'))
 
             # Get the response content so we can check the fuel price
             returnContent = response.content
@@ -368,7 +381,11 @@ def lockin():
 
 
         # Send through the request and get the response
-        response = httpx.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=headers)
+        try:
+            response = httpx.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=headers)
+        except httpx.ConnectError:
+            session['ErrorMessage'] = "Could not connect to the 7-Eleven API."
+            return redirect(url_for('index'))
 
         # Get the response into a json array
         returnContent = json.loads(response.content)

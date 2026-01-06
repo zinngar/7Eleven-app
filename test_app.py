@@ -73,5 +73,41 @@ class AppTestCase(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 302)
 
+    @patch('httpx.post')
+    def test_logout(self, mock_post):
+        with self.app as c:
+            with c.session_transaction() as sess:
+                sess['access_token'] = 'test_access_token'
+        response = self.app.get('/logout')
+        self.assertEqual(response.status_code, 302)
+
+    @patch('httpx.post')
+    @patch('httpx.get')
+    @patch('functions.getStores')
+    def test_login_invalid_credentials(self, mock_get_stores, mock_get, mock_post):
+        mock_post.return_value.json.return_value = {}
+        response = self.app.post('/login', data={
+            "email": "test@example.com",
+            "password": "password",
+            "device_id": "test_device_id",
+        })
+        self.assertEqual(response.status_code, 302)
+
+    @patch('httpx.post')
+    @patch('httpx.get')
+    @patch('functions.get_fuel_prices')
+    def test_lockin_no_fuel_type(self, mock_get_fuel_prices, mock_get, mock_post):
+        with self.app as c:
+            with c.session_transaction() as sess:
+                sess['access_token'] = 'test_access_token'
+                sess['accountID'] = 'test_account_id'
+
+        mock_get_fuel_prices.return_value = []
+        response = self.app.post('/lockin', data={
+            "fueltype": "57",
+            "submit": "automatic",
+        })
+        self.assertEqual(response.status_code, 302)
+
 if __name__ == '__main__':
     unittest.main()
