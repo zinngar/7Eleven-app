@@ -33,7 +33,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 # Used for getting/settings the OS environments and for writing/reading the stores.json file
 import sys, os, time
 # Used for sending requests to 7-Eleven and getting the response in a JSON format.
-import requests, json
+import httpx, json
 # Used for our randomly generated Device ID (if needed)
 import random
 # Used to set our coordinates while locking in a price
@@ -59,11 +59,20 @@ if(os.getenv('DEVICE_ID', settings.DEVICE_ID) in [None,"changethis",""]):
 
 app = Flask(__name__)
 
+# Check if the autolock.ini file exists, if it doesn't create it.
+if not (os.path.exists("./autolock.ini")):
+    autolocker.create_ini()
+
+# Open the config file and read the settings
+config = configparser.ConfigParser()
+config.read("./autolock.ini")
+
 # Uncomment to enable basic authentication
 #app.config['BASIC_AUTH_FORCE'] = True
 #app.config['BASIC_AUTH_USERNAME'] = 'petrol'
 #app.config['BASIC_AUTH_PASSWORD'] = 'lockit'
 #basic_auth = BasicAuth(app)
+app.secret_key = os.urandom(12)
 
 @app.route('/')
 def index():
@@ -93,9 +102,9 @@ def index():
     session['max_price'] = config['General']['max_price']
 
     # Get the cheapest fuel price to show on the automatic lock in page
-    fuelPrice = functions.cheapestFuelAll()
+    fuel_prices = functions.get_fuel_prices()
 
-    return render_template('price.html',device_id=DEVICE_ID)
+    return render_template('price.html', device_id=DEVICE_ID, fuel_prices=fuel_prices)
 
 
 
@@ -118,72 +127,44 @@ def login():
         password = str(request.form['password'])
         email = str(request.form['email'])
 
-        # The payload that we use to login
-        payload = '{"Email":"' + email + '","Password":"' + password + '","DeviceName":"' + functions.DEVICE_NAME + '","DeviceOsNameVersion":"' + functions.OS_VERSION +'"}'
+        # Get the auth token
+        auth_token = functions.get_auth_token(email, password, session['DEVICE_ID'])
+        if "access_token" not in auth_token:
+            session['ErrorMessage'] = "Invalid email or password."
+            return redirect(url_for('index'))
 
-        # Generate the tssa string
-        tssa = functions.generateTssa(functions.BASE_URL + "account/login", "POST", payload)
+        session['access_token'] = auth_token['access_token']
+        session['refresh_token'] = auth_token['refresh_token']
 
-        # Assign the headers
-        headers = {'User-Agent':'Apache-HttpClient/UNAVAILABLE (java 1.4)',
-                   'Authorization':'%s' % tssa,
-                   'X-OsVersion':functions.OS_VERSION,
-                   'X-OsName':'Android',
-                   'X-DeviceID':session['DEVICE_ID'],
-                   'X-VmobID':functions.des_encrypt_string(session['DEVICE_ID']),
-                   'X-AppVersion':functions.APP_VERSION,
-                   'Content-Type':'application/json; charset=utf-8'}
+        # Get user profile information
+        headers = {'Authorization': 'Bearer ' + session['access_token']}
+        response = httpx.get(functions.BASE_URL + "user/profile", headers=headers)
+        profile_data = response.json()
 
-        # Login now!
-        response = requests.post(functions.BASE_URL + "account/login", data=payload, headers=headers)
+        session['accountID'] = profile_data['id']
+        session['firstName'] = profile_data['first_name']
+        session['cardBalance'] = profile_data['card_balance']
 
-        returnHeaders = response.headers
-        returnContent = json.loads(response.text)
+        functions.lockedPrices()
 
-        try:
-            # If there was an error logging in, redirect to the index page with the 7Eleven response
-            if(returnContent['Message']):
-                session['ErrorMessage'] = returnContent['Message']
-                return redirect(url_for('index'))
+        # Download the stores.json file
+        with open('./stores.json', 'wb') as f:
+            f.write(functions.getStores())
 
-        except:
-
-            # We need the AccessToken from the response header
-            accessToken = str(returnHeaders).split("'X-AccessToken': '")
-            accessToken = accessToken[1].split("'")
-            accessToken = accessToken[0]
-
-            # DeviceSecretToken and accountID are both needed to lock in a fuel price
-            deviceSecret = returnContent['DeviceSecretToken']
-            accountID    = returnContent['AccountId']
-            # Save the users first name and their card balance so we can display it
-            firstName    = returnContent['FirstName']
-            cardBalance  = str(returnContent['DigitalCard']['Balance'])
-
-            session['deviceSecret'] = deviceSecret
-            session['accessToken'] = accessToken
-            session['accountID'] = accountID
-            session['firstName'] = firstName
-            session['cardBalance'] = cardBalance
-
-
-            functions.lockedPrices()
-
-
-            # If we have ticked enable auto lock in, then set boolean to true
-            if(request.form.getlist('auto_lockin')):
-                config.set('General', 'auto_lock_enabled', "True")
-                session['auto_lock'] = True
-            else:
-                # We didn't want to save it, so set to false
-                config.set('General', 'auto_lock_enabled', "False")
-                session['auto_lock'] = False
+        # If we have ticked enable auto lock in, then set boolean to true
+        if request.form.getlist('auto_lockin'):
+            config.set('General', 'auto_lock_enabled', "True")
+            session['auto_lock'] = True
+        else:
+            # We didn't want to save it, so set to false
+            config.set('General', 'auto_lock_enabled', "False")
+            session['auto_lock'] = False
 
             # Save their log in anyway, so we can update the auto lock option later if needed
-            config.set('Account', 'deviceSecret', session['deviceSecret'])
-            config.set('Account', 'accessToken', session['accessToken'])
-            config.set('Account', 'cardBalance', session['cardBalance'])
-            config.set('Account', 'account_ID', session['accountID'])
+            config.set('Account', 'access_token', session['access_token'])
+            config.set('Account', 'refresh_token', session['refresh_token'])
+            config.set('Account', 'cardBalance', str(session['cardBalance']))
+            config.set('Account', 'account_ID', str(session['accountID']))
             config.set('Account', 'DEVICE_ID', session['DEVICE_ID'])
 
             # If we have an active fuel lock, set fuel_lock_saved to true, otherwise false
@@ -204,21 +185,8 @@ def login():
 @app.route('/logout')
 def logout():
 
-    # The logout payload is an empty string but it is still needed
-    payload = '""'
-    tssa = functions.generateTssa(functions.BASE_URL + "account/logout", "POST", payload, session['accessToken'])
-
-    headers = {'User-Agent':'Apache-HttpClient/UNAVAILABLE (java 1.4)',
-               'Authorization':'%s' % tssa,
-               'X-OsVersion':functions.OS_VERSION,
-               'X-OsName':'Android',
-               'X-DeviceID':session['DEVICE_ID'],
-               'X-VmobID':functions.des_encrypt_string(session['DEVICE_ID']),
-               'X-AppVersion':functions.APP_VERSION,
-               'X-DeviceSecret':session['deviceSecret'],
-               'Content-Type':'application/json; charset=utf-8'}
-
-    response = requests.post(functions.BASE_URL + "account/logout", data=payload, headers=headers)
+    headers = {"Authorization": "Bearer " + session["access_token"]}
+    response = httpx.post(functions.BASE_URL + "auth/revoke", headers=headers)
 
     # Clear all of the previously set session variables and then redirect to the index page
     session.clear()
@@ -292,7 +260,21 @@ def lockin():
             session.pop('SuccessMessage', None)
 
             # Get the postcode and price of the cheapest fuel
-            locationResult = functions.cheapestFuel(fuelType)
+            fuel_prices = functions.get_fuel_prices()
+            locationResult = None
+            for price in fuel_prices:
+                if price["fuel_type"] == fuelType:
+                    locationResult = (
+                        price["postcode"],
+                        price["price"],
+                        price["latitude"],
+                        price["longitude"],
+                    )
+                    break
+
+            if locationResult is None:
+                session['ErrorMessage'] = "Could not find a price for the selected fuel type."
+                return redirect(url_for('index'))
 
             # They tried to do something different from the manual and automatic form, so throw up an error
             if(submissionMethod != "manual" and submissionMethod != "automatic"):
@@ -336,21 +318,11 @@ def lockin():
 
             # The payload to start the lock in process.
             payload = '{"LastStoreUpdateTimestamp":' + str(int(time.time())) + ',"Latitude":"' + str(locLat) + '","Longitude":"' + str(locLong) + '"}'
-            tssa = functions.generateTssa(functions.BASE_URL + "FuelLock/StartSession", "POST", payload, session['accessToken'])
+            headers = {"Authorization": "Bearer " + session["access_token"]}
 
-            # Now we start the request header
-            headers = {'User-Agent':'Apache-HttpClient/UNAVAILABLE (java 1.4)',
-                       'Authorization':'%s' % tssa,
-                       'X-OsVersion':functions.OS_VERSION,
-                       'X-OsName':'Android',
-                       'X-DeviceID':session['DEVICE_ID'],
-                       'X-VmobID':functions.des_encrypt_string(session['DEVICE_ID']),
-                       'X-AppVersion':functions.APP_VERSION,
-                       'X-DeviceSecret':session['deviceSecret'],
-                       'Content-Type':'application/json; charset=utf-8'}
 
             # Send the request
-            response = requests.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=headers)
+            response = httpx.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=headers)
 
             # Get the response content so we can check the fuel price
             returnContent = response.content
@@ -392,20 +364,11 @@ def lockin():
         # Lets start the actual lock in process
         payload = '{"AccountId":"' + session['accountID'] + '","FuelType":"' + session['fuelType'] + '","NumberOfLitres":"' + str(NumberOfLitres) + '"}'
 
-        tssa = functions.generateTssa(functions.BASE_URL + "FuelLock/Confirm", "POST", payload, session['accessToken'])
+        headers = {"Authorization": "Bearer " + session["access_token"]}
 
-        headers = {'User-Agent':'Apache-HttpClient/UNAVAILABLE (java 1.4)',
-                   'Authorization':'%s' % tssa,
-                   'X-OsVersion':functions.OS_VERSION,
-                   'X-OsName':'Android',
-                   'X-DeviceID':session['DEVICE_ID'],
-                   'X-VmobID':functions.des_encrypt_string(session['DEVICE_ID']),
-                   'X-AppVersion':functions.APP_VERSION,
-                   'X-DeviceSecret':session['deviceSecret'],
-                   'Content-Type':'application/json; charset=utf-8'}
 
         # Send through the request and get the response
-        response = requests.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=headers)
+        response = httpx.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=headers)
 
         # Get the response into a json array
         returnContent = json.loads(response.content)
@@ -446,42 +409,6 @@ def lockin():
         return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    # Try and open stores.json
-    if(os.path.isfile('./stores.json')):
-        with open('./stores.json', 'r') as f:
-            try:
-                print("Note: Opening stores.json")
-                stores = json.load(f)
-            except:
-                pass
-        try:
-            # Check to see if the stores.json file is older than 1 week.
-            # If it is, we will download a new version
-            if(stores['AsOfDate'] < (time.time() - (60 * 60 * 24 * 7))):
-                print("Note: Your stores.json file is too old, updating it..")
-                with open('./stores.json', 'wb') as f:
-                    f.write(functions.getStores())
-
-                print("Note: Updating stores.json complete")
-        except:
-            # Our json file isn't what we expected, so we will download a new one.
-            with open('./stores.json', 'wb') as f:
-                f.write(functions.getStores())
-
-    else:
-        # We have no stores.json file, so we wil download it
-        print("Note: No stores.json found, creating it for you.")
-        with open('./stores.json', 'wb') as f:
-            f.write(functions.getStores())
-
-    # Check if the autolock.ini file exists, if it doesn't create it.
-    if not (os.path.exists("./autolock.ini")):
-        autolocker.create_ini()
-
-    # Open the config file and read the settings
-    config = configparser.ConfigParser()
-    config.read("./autolock.ini")
-
     # Start the autosearch scheduler
     if(functions.TZ in [None,""]):
         scheduler = BackgroundScheduler(timezone='UTC')

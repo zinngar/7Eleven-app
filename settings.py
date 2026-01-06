@@ -39,10 +39,10 @@ API_KEY=""
 TZ="UTC"
 
 # BASE_URL: 7-11 Mobile Application API End Point
-BASE_URL="https://711-goodcall.api.tigerspike.com/api/v1/"
+BASE_URL="https://api.7eleven.com.au/v1/"
 
-# PRICE_URL: 11-Seven Price API
-PRICE_URL="https://projectzerothree.info/api.php?format=json"
+# PRICE_URL: Servo Saver API
+PRICE_URL="https://api.servosavvy.vic.gov.au/v1/fuel-prices"
 
 # Device name - Samsung Galaxy S10. You can change this to any device you want.
 DEVICE_NAME="SM-G973FZKAXSA"
@@ -51,8 +51,13 @@ DEVICE_NAME="SM-G973FZKAXSA"
 OS_VERSION="Android 9.0.0"
 
 # App version
-APP_VERSION="1.10.0.2044"
+APP_VERSION="2.1.0"
 
 # Device id - A 16 character hexadecimal device identifier. You can change this to your own device ID
 # if you know it, otherwise a random one will be generated
 DEVICE_ID=""
+
+# Servo Saver API credentials
+# Register for an account at https://developer.servosavvy.vic.gov.au/
+SERVO_SAVER_CLIENT_ID = "YOUR_CLIENT_ID"
+SERVO_SAVER_CLIENT_SECRET = "YOUR_CLIENT_SECRET"

@@ -17,9 +17,10 @@
 #    along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 # Used to scrape ozbargain, and regex
-from bs4 import BeautifulSoup, re
+from bs4 import BeautifulSoup
+import re
 # Used for sending requests to 7-Eleven and getting the response in a JSON format
-import requests, json
+import httpx, json
 # Used to load details from the autolock.ini config file
 import configparser
 # Functions used for adding/subtracting from our coordinates and getting the time
@@ -50,7 +51,7 @@ def search_ozbargain():
     #regex_search = "(?=\[[A-Z]{2,3}\])"
 
     # The link to the deals page
-    url = requests.get("https://www.ozbargain.com.au/deals").text
+    url = httpx.get("https://www.ozbargain.com.au/deals").text
     # Open the deals page with BeautifulSoup
     soup = BeautifulSoup(url, "html.parser")
 
@@ -86,7 +87,7 @@ def search_pzt():
     # We need to reiterate that suburb is global.. for some reason
     global suburb
     # Load the ProjectZeroThree API into a JSON list
-    url = requests.get(functions.PRICE_URL, headers={"user-agent":functions.USER_AGENT})
+    url = httpx.get(functions.PRICE_URL, headers={"user-agent":functions.USER_AGENT})
     # Find the cheapest price
     petrol_station = url.json()['regions'][0]['prices']
     # If the fuel type is U98 then get its suburb
@@ -97,36 +98,11 @@ def search_pzt():
     return suburb
 
 # Check if we have a current fuel lock
-def check_fuellock(accessToken, deviceSecret, DEVICE_ID):
-    # Generate the tssa
-    tssa = functions.generateTssa(functions.BASE_URL + "FuelLock/List", "GET", None, accessToken)
-
-    # Assign the headers and then request the fuel prices.
-    headers = {'User-Agent':'Apache-HttpClient/UNAVAILABLE (java 1.4)',
-               'Authorization':'%s' % tssa,
-               'X-OsVersion':functions.OS_VERSION,
-               'X-OsName':'Android',
-               'X-DeviceID':DEVICE_ID,
-               'X-VmobID':functions.des_encrypt_string(DEVICE_ID),
-               'X-AppVersion':functions.APP_VERSION,
-               'X-DeviceSecret':deviceSecret}
-
-    # Send the request and get the response into a JSON array
-    response = requests.get(functions.BASE_URL + "FuelLock/List", headers=headers)
+def check_fuellock(access_token):
+    headers = {"Authorization": "Bearer " + access_token}
+    response = httpx.get(functions.BASE_URL + "fuel-lock/locks", headers=headers)
     returnContent = json.loads(response.content)
-
-
-    config = configparser.ConfigParser()
-    config.read("./autolock.ini")
-    # If the Status of our last fuel lock is 0 (ACTIVE) set it to True, otherwise it has EXPIRED (1) or
-    # was REDEEMED (2), so we haven't got a fuel lock saved.
-    if(returnContent[0]['Status'] == 0):
-        config.set('Account', 'fuel_lock_saved', "True")
-    else:
-        config.set('Account', 'fuel_lock_saved', "False")
-
-    # Return our fuel lock saved boolean
-    return config['Account'].getboolean('fuel_lock_saved')
+    return returnContent
 
 def start_lockin():
     config = configparser.ConfigParser()
@@ -137,17 +113,27 @@ def start_lockin():
     # Get the maximum price we want to pay for fuel
     max_price = config['General']['max_price']
     # Get our account details
-    deviceSecret = config['Account']['deviceSecret']
-    accessToken = config['Account']['accessToken']
+    access_token = config['Account']['access_token']
+    refresh_token = config['Account']['refresh_token']
     cardBalance = config['Account']['cardBalance']
     DEVICE_ID = config['Account']['DEVICE_ID']
 
+    # Check if the access token is expired
+    if "error" in check_fuellock(access_token):
+        auth_token = functions.refresh_auth_token(refresh_token)
+        access_token = auth_token["access_token"]
+        refresh_token = auth_token["refresh_token"]
+        config.set('Account', 'access_token', access_token)
+        config.set('Account', 'refresh_token', refresh_token)
+        with open('./autolock.ini', 'w') as configfile:
+            config.write(configfile)
+
     # Check if we have saved a fuel lock. We make a proper check here in case we have already locked in a price
     # without updating the autolock.ini for some reason.
-    fuel_lock_saved = check_fuellock(accessToken, deviceSecret, DEVICE_ID)
+    fuel_lock_saved = check_fuellock(access_token)
 
     # If we have auto lock enabled, and are logged in but haven't saved a fuel lock yet, then proceed.
-    if(auto_lock_enabled and deviceSecret and not fuel_lock_saved):
+    if auto_lock_enabled and access_token and not fuel_lock_saved:
 
         # Search OzBargain for a new deal first, it may be posted there first
         if(not search_ozbargain()):
@@ -171,21 +157,8 @@ def start_lockin():
 
             # The payload to start the lock in process.
             payload = '{"LastStoreUpdateTimestamp":' + str(int(time.time())) + ',"Latitude":"' + str(latitude) + '","Longitude":"' + str(longitude) + '"}'
-            tssa = functions.generateTssa(functions.BASE_URL + "FuelLock/StartSession", "POST", payload, accessToken)
-
-            # Now we start the request header
-            headers = {'User-Agent':'Apache-HttpClient/UNAVAILABLE (java 1.4)',
-                       'Authorization':'%s' % tssa,
-                       'X-OsVersion':functions.OS_VERSION,
-                       'X-OsName':'Android',
-                       'X-DeviceID':DEVICE_ID,
-                       'X-VmobID':functions.des_encrypt_string(DEVICE_ID),
-                       'X-AppVersion':functions.APP_VERSION,
-                       'X-DeviceSecret':deviceSecret,
-                       'Content-Type':'application/json; charset=utf-8'}
-
-            # Send the request
-            response = requests.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=headers)
+            headers = {"Authorization": "Bearer " + access_token}
+            response = httpx.post(functions.BASE_URL + "fuel-lock/start-session", data=payload, headers=headers)
 
             # Get the response content so we can check the fuel price
             returnContent = response.content
@@ -217,21 +190,8 @@ def start_lockin():
 
                     # Lets start the actual lock in process
                     payload = '{"AccountId":"' + config['Account']['account_id'] + '","FuelType":' + str(wanted_fuel_type) + ',"NumberOfLitres":"' + str(NumberOfLitres) + '"}'
-
-                    tssa = functions.generateTssa(functions.BASE_URL + "FuelLock/Confirm", "POST", payload, accessToken)
-
-                    headers = {'User-Agent':'Apache-HttpClient/UNAVAILABLE (java 1.4)',
-                               'Authorization':'%s' % tssa,
-                               'X-OsVersion':functions.OS_VERSION,
-                               'X-OsName':'Android',
-                               'X-DeviceID':DEVICE_ID,
-                               'X-VmobID':functions.des_encrypt_string(DEVICE_ID),
-                               'X-AppVersion':functions.APP_VERSION,
-                               'X-DeviceSecret':deviceSecret,
-                               'Content-Type':'application/json; charset=utf-8'}
-
-                    # Send through the request and get the response
-                    response = requests.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=headers)
+                    headers = {"Authorization": "Bearer " + access_token}
+                    response = httpx.post(functions.BASE_URL + "fuel-lock/confirm", data=payload, headers=headers)
                     returnContent = json.loads(response.content)
 
                     try:
