@@ -9,7 +9,7 @@ class AppTestCase(unittest.TestCase):
 
     @patch('functions.get_fuel_prices')
     def test_index(self, mock_get_fuel_prices):
-        mock_get_fuel_prices.return_value = []
+        mock_get_fuel_prices.return_value = {"prices": []}
         response = self.app.get('/')
         self.assertEqual(response.status_code, 200)
 
@@ -51,15 +51,17 @@ class AppTestCase(unittest.TestCase):
                 sess['access_token'] = 'test_access_token'
                 sess['accountID'] = 'test_account_id'
 
-        mock_get_fuel_prices.return_value = [
-            {
-                "fuel_type": "57",
-                "price": 123.4,
-                "postcode": "1234",
-                "latitude": 1.234,
-                "longitude": 1.234,
-            }
-        ]
+        mock_get_fuel_prices.return_value = {
+            "prices": [
+                {
+                    "fuel_type": "57",
+                    "price": 123.4,
+                    "postcode": "1234",
+                    "latitude": 1.234,
+                    "longitude": 1.234,
+                }
+            ]
+        }
 
         mock_post.side_effect = [
             Mock(content='{"CheapestFuelTypeStores": [{"FuelPrices": [{"Ean": "57", "Price": 123.4}]}]}'),
@@ -102,7 +104,7 @@ class AppTestCase(unittest.TestCase):
                 sess['access_token'] = 'test_access_token'
                 sess['accountID'] = 'test_account_id'
 
-        mock_get_fuel_prices.return_value = []
+        mock_get_fuel_prices.return_value = {"prices": []}
         response = self.app.post('/lockin', data={
             "fueltype": "57",
             "submit": "automatic",

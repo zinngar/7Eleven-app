@@ -12,7 +12,7 @@ Now that you have pip installed, you will need to install the dependencies in re
 
 Optional: You can use a [Google Maps API key](https://developers.google.com/maps/documentation/embed/get-api-key) with the 'Geocoding API' enabled if you want to get a stores location via Google. You should set this key in settings.py or using the `API_KEY` environment variable described below.
 
-Optional: You can use the [Servo Saver API](https://developer.servosavvy.vic.gov.au/) to get fuel prices for Victoria. You will need to register for an account and get a client ID and secret. You should set these in settings.py or using the `SERVO_SAVER_CLIENT_ID` and `SERVO_SAVER_CLIENT_SECRET` environment variables described below.
+Optional: You can use the [FuelPrice.io API](https://fuelprice.io/) to get fuel prices for Australia. You will need to register for an account and get an API key. You should set this in settings.py or using the `FUELPRICE_API_KEY` environment variable described below.
 
 # Optional Security Setup
 
@@ -47,12 +47,11 @@ Other environment variables you can specify at runtime:
 
 `BASE_URL`: The URL for the 7-Eleven API.<br />
 `TZ`: Display time using the chosen timezone.<br />
-`PRICE_URL`: The URL for the fuel price API (currently defaults to the Servo Saver API).<br />
+`FUELPRICE_API_URL`: The URL for the FuelPrice.io API.<br />
+`FUELPRICE_API_KEY`: The API key for the FuelPrice.io API.<br />
 `DEVICE_NAME`: The name of the device reported on login to the 7-Eleven API (set by default in settings.py)<br />
 `OS_VERSION`: The Android OS version reported on login to the 7-Eleven API (set by default in settings.py)<br />
-`APP_VERSION`: The 7-Eleven app version reported on login to the 7-Eleven API (set by default in settings.py)<br />
-`SERVO_SAVER_CLIENT_ID`: The client ID for the Servo Saver API.<br />
-`SERVO_SAVER_CLIENT_SECRET`: The client secret for the Servo Saver API.
+`APP_VERSION`: The 7-Eleven app version reported on login to the 7-Eleven API (set by default in settings.py)
 
 An example of running with environmental variables is as follows:
 

@@ -271,15 +271,16 @@ def lockin():
             # Get the postcode and price of the cheapest fuel
             fuel_prices = functions.get_fuel_prices()
             locationResult = None
-            for price in fuel_prices:
-                if price["fuel_type"] == fuelType:
-                    locationResult = (
-                        price["postcode"],
-                        price["price"],
-                        price["latitude"],
-                        price["longitude"],
-                    )
-                    break
+            if fuel_prices and "prices" in fuel_prices:
+                for price in fuel_prices["prices"]:
+                    if price["fuel_type"] == fuelType:
+                        locationResult = (
+                            price["postcode"],
+                            price["price"],
+                            price["latitude"],
+                            price["longitude"],
+                        )
+                        break
 
             if locationResult is None:
                 session['ErrorMessage'] = "Could not find a price for the selected fuel type."

@@ -41,8 +41,8 @@ TZ="UTC"
 # BASE_URL: 7-11 Mobile Application API End Point
 BASE_URL="https://api.7eleven.com.au/v1/"
 
-# PRICE_URL: Servo Saver API
-PRICE_URL="https://api.servosavvy.vic.gov.au/v1/fuel-prices"
+# PRICE_URL: FuelPrice.io API
+FUELPRICE_API_URL="https://api.fuelprice.io/v1/fuel/prices"
 
 # Device name - Samsung Galaxy S10. You can change this to any device you want.
 DEVICE_NAME="SM-G973FZKAXSA"
@@ -57,7 +57,6 @@ APP_VERSION="2.1.0"
 # if you know it, otherwise a random one will be generated
 DEVICE_ID=""
 
-# Servo Saver API credentials
-# Register for an account at https://developer.servosavvy.vic.gov.au/
-SERVO_SAVER_CLIENT_ID = "YOUR_CLIENT_ID"
-SERVO_SAVER_CLIENT_SECRET = "YOUR_CLIENT_SECRET"
+# FuelPrice.io API Key
+# Register for an account at https://fuelprice.io/
+FUELPRICE_API_KEY = "YOUR_API_KEY"
