@@ -17,9 +17,12 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Lowercase the repository name
+      id: repo_name
+      run: echo "repo=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
     - name: Build and push the Docker image
       uses: docker/build-push-action@v2
       with:
         context: .
         push: true
-        tags: ghcr.io/${{ github.repository }}/fuellock:latest
+        tags: ghcr.io/${{ steps.repo_name.outputs.repo }}/fuellock:latest
