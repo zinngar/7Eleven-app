@@ -46,9 +46,13 @@
                 <button class="btn btn-default" name="submit" value="automatic" type="submit" onclick="loader.style.display = 'block'">Lock it in!</button>
             </div>
         </form>
-        {% for fuel_price in fuel_prices %}
-        <h5 id="{{ fuel_price.fuel_type }}"> {{ fuel_price.fuel_type }} cheapest price found was <strong class='bold_balance'>{{ fuel_price.price }}</strong> at <strong class='bold_balance'>{{ fuel_price.postcode }}</strong></h5>
-        {% endfor %}
+        {% if fuel_prices and fuel_prices.prices %}
+            {% for fuel_price in fuel_prices.prices %}
+            <h5 id="{{ fuel_price.fuel_type }}"> {{ fuel_price.fuel_type }} cheapest price found was <strong class='bold_balance'>{{ fuel_price.price }}</strong> at <strong class='bold_balance'>{{ fuel_price.postcode }}</strong></h5>
+            {% endfor %}
+        {% else %}
+            <h5>Could not retrieve fuel prices.</h5>
+        {% endif %}
     </div>
     <div id="manual">
         <form class="form-inline mt-2 mt-md-0" action="/lockin" method="POST">

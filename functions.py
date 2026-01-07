@@ -38,7 +38,7 @@ You can set or change any these environmental variables in settings.py
 API_KEY = os.getenv('API_KEY',settings.API_KEY)
 TZ = os.getenv('TZ', settings.TZ)
 BASE_URL = os.getenv('BASE_URL',settings.BASE_URL)
-PRICE_URL = os.getenv('PRICE_URL',settings.PRICE_URL)
+FUELPRICE_API_URL = os.getenv('FUELPRICE_API_URL',settings.FUELPRICE_API_URL)
 DEVICE_NAME = os.getenv('DEVICE_NAME', settings.DEVICE_NAME)
 OS_VERSION = os.getenv('OS_VERSION', settings.OS_VERSION)
 APP_VERSION = os.getenv('APP_VERSION', settings.APP_VERSION)
@@ -69,25 +69,14 @@ def refresh_auth_token(refresh_token):
     response = httpx.post(url, json=payload)
     return response.json()
 
-def get_servo_saver_token():
-    """Gets a bearer token from the Servo Saver API."""
-    url = "https://api.servosavvy.vic.gov.au/v1/auth/token"
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    payload = {
-        "client_id": settings.SERVO_SAVER_CLIENT_ID,
-        "client_secret": settings.SERVO_SAVER_CLIENT_SECRET,
-        "grant_type": "client_credentials",
-    }
-    response = httpx.post(url, headers=headers, data=payload)
-    return response.json()["access_token"]
-
-
 def get_fuel_prices():
-    """Gets fuel prices from the Servo Saver API."""
-    token = get_servo_saver_token()
-    headers = {"Authorization": "Bearer " + token}
-    response = httpx.get(PRICE_URL, headers=headers)
-    return response.json()
+    """Gets fuel prices from the FuelPrice.io API."""
+    headers = {"Authorization": "Bearer " + settings.FUELPRICE_API_KEY}
+    try:
+        response = httpx.get(FUELPRICE_API_URL, headers=headers)
+        return response.json()
+    except (httpx.ConnectError, json.JSONDecodeError):
+        return []
 
 def lockedPrices():
     # This function is used for getting our locked in fuel prices to display on the main page
