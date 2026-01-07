@@ -41,6 +41,11 @@ Then run the image in a container:
   -p 5000:5000 \<br />
   fuellock<br /></code></pre>
 
+# Automated Builds
+Docker images are built automatically and pushed to the GitHub Container Registry. You can pull the latest image with the following command:
+
+`docker pull ghcr.io/USERNAME/7-eleven-python/fuellock:latest`
+
 And browse to http://[Docker host IP]:5000
 
 Other environment variables you can specify at runtime:
