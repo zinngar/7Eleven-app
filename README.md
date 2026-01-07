@@ -44,7 +44,7 @@ Then run the image in a container:
 # Automated Builds
 Docker images are built automatically and pushed to the GitHub Container Registry. You can pull the latest image with the following command:
 
-`docker pull ghcr.io/USERNAME/7-eleven-python/fuellock:latest`
+`docker pull ghcr.io/zinngar/7eleven-app/fuellock:latest`
 
 And browse to http://[Docker host IP]:5000
 
