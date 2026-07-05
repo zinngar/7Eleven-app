@@ -19,7 +19,7 @@
 #    along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 
 # Optional Security
 # Uncomment Basic Auth section to enable basic authentication so users will be prompted a username and password before seeing the website.
@@ -102,7 +102,7 @@ def index():
     session['max_price'] = config['General']['max_price']
 
     # Get the cheapest fuel price to show on the automatic lock in page
-    fuel_prices = functions.get_fuel_prices()
+    fuel_prices = functions.get_cheapest_nationwide_prices()
 
     return render_template('price.html', device_id=DEVICE_ID, fuel_prices=fuel_prices)
 
@@ -142,8 +142,7 @@ def login():
 
         # Get user profile information
         try:
-            headers = {'Authorization': 'Bearer ' + session['access_token']}
-            response = httpx.get(functions.BASE_URL + "user/profile", headers=headers)
+            response = httpx.get(functions.BASE_URL + "user/profile", headers=functions.get_headers(session['access_token']))
             profile_data = response.json()
         except httpx.ConnectError:
             session['ErrorMessage'] = "Could not connect to the 7-Eleven API."
@@ -194,8 +193,7 @@ def login():
 @app.route('/logout')
 def logout():
 
-    headers = {"Authorization": "Bearer " + session["access_token"]}
-    response = httpx.post(functions.BASE_URL + "auth/revoke", headers=headers)
+    response = httpx.post(functions.BASE_URL + "auth/revoke", headers=functions.get_headers(session["access_token"]))
 
     # Clear all of the previously set session variables and then redirect to the index page
     session.clear()
@@ -268,21 +266,26 @@ def lockin():
             session.pop('ErrorMessage', None)
             session.pop('SuccessMessage', None)
 
+
             # Get the postcode and price of the cheapest fuel
-            fuel_prices = functions.get_fuel_prices()
+            fuel_prices = functions.get_cheapest_nationwide_prices()
             locationResult = None
-            if fuel_prices and "prices" in fuel_prices:
-                for price in fuel_prices["prices"]:
-                    if price["fuel_type"] == fuelType:
-                        locationResult = (
-                            price["postcode"],
-                            price["price"],
-                            price["latitude"],
-                            price["longitude"],
-                        )
-                        break
+            if fuel_prices:
+                # Petrolmate returns a list of stations. We take the first one (cheapest)
+                best_station = fuel_prices[0]
+
+                # Try to get lat/lng for this suburb
+                store_lat_lng = functions.getStoreAddressBySuburb(best_station['suburb'])
+                if store_lat_lng:
+                    locationResult = (
+                        best_station['suburb'],
+                        best_station['price'],
+                        float(store_lat_lng[0]),
+                        float(store_lat_lng[1]),
+                    )
 
             if locationResult is None:
+
                 session['ErrorMessage'] = "Could not find a price for the selected fuel type."
                 return redirect(url_for('index'))
 
@@ -328,12 +331,9 @@ def lockin():
 
             # The payload to start the lock in process.
             payload = '{"LastStoreUpdateTimestamp":' + str(int(time.time())) + ',"Latitude":"' + str(locLat) + '","Longitude":"' + str(locLong) + '"}'
-            headers = {"Authorization": "Bearer " + session["access_token"]}
-
-
             # Send the request
             try:
-                response = httpx.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=headers)
+                response = httpx.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=functions.get_headers(session["access_token"]))
             except httpx.ConnectError:
                 session['ErrorMessage'] = "Could not connect to the 7-Eleven API."
                 return redirect(url_for('index'))
@@ -378,12 +378,9 @@ def lockin():
         # Lets start the actual lock in process
         payload = '{"AccountId":"' + session['accountID'] + '","FuelType":"' + session['fuelType'] + '","NumberOfLitres":"' + str(NumberOfLitres) + '"}'
 
-        headers = {"Authorization": "Bearer " + session["access_token"]}
-
-
         # Send through the request and get the response
         try:
-            response = httpx.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=headers)
+            response = httpx.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=functions.get_headers(session["access_token"]))
         except httpx.ConnectError:
             session['ErrorMessage'] = "Could not connect to the 7-Eleven API."
             return redirect(url_for('index'))
@@ -426,6 +423,41 @@ def lockin():
         session['ErrorMessage'] = "Unknown error occured. Please try again!"
         return redirect(url_for('index'))
 
+
+@app.route('/map')
+def map_page():
+    if 'access_token' not in session:
+        return redirect(url_for('index'))
+    return render_template('map.html')
+
+@app.route('/api/stores')
+def api_stores():
+    if not os.path.exists('./stores.json'):
+        return jsonify([])
+    with open('./stores.json', 'r') as f:
+        stores = json.load(f)
+
+    result = []
+    for store in stores.get('Diffs', []):
+        result.append({
+            'name': store.get('Name'),
+            'address': store.get('Address'),
+            'suburb': store.get('Suburb'),
+            'postcode': store.get('PostCode'),
+            'lat': store.get('Latitude'),
+            'lng': store.get('Longitude'),
+            'id': store.get('StoreNo')
+        })
+    return jsonify(result)
+
+@app.route('/api/store_prices/<store_id>')
+def api_store_prices(store_id):
+    headers = functions.get_headers(session.get("access_token"))
+    try:
+        response = httpx.get(functions.BASE_URL + f"FuelPrice/FuelPriceForStore/{store_id}", headers=headers)
+        return response.content
+    except:
+        return jsonify({"error": "Could not fetch prices"}), 500
 if __name__ == '__main__':
     # Start the autosearch scheduler
     if(functions.TZ in [None,""]):

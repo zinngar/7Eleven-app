@@ -61,7 +61,7 @@ Other environment variables you can specify at runtime:
 An example of running with environmental variables is as follows:
 
 <pre><code>docker run -d \<br />
-  -e APP_VERSION=2.1.0 \<br />
+  -e APP_VERSION=2.89.0 \<br />
   -e TZ=Australia/Melbourne \<br />
   --name 7Eleven_Fuel \<br />
   -p 5000:5000 \<br />
