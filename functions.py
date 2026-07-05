@@ -40,9 +40,25 @@ TZ = os.getenv('TZ', settings.TZ)
 BASE_URL = os.getenv('BASE_URL',settings.BASE_URL)
 FUELPRICE_API_URL = os.getenv('FUELPRICE_API_URL',settings.FUELPRICE_API_URL)
 DEVICE_NAME = os.getenv('DEVICE_NAME', settings.DEVICE_NAME)
+
+def get_headers(access_token=None):
+    """Returns the standard headers for 7-Eleven API requests."""
+    headers = {
+        "User-Agent": USER_AGENT,
+        "X-AppVersion": APP_VERSION,
+        "X-OsName": "Android",
+        "X-OsVersion": OS_VERSION,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+    if 'device_id' in session:
+        headers["X-DeviceID"] = session['DEVICE_ID']
+    return headers
 OS_VERSION = os.getenv('OS_VERSION', settings.OS_VERSION)
 APP_VERSION = os.getenv('APP_VERSION', settings.APP_VERSION)
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:71.0) Gecko/20100101 Firefox/71.0"
+USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36"
 
 def get_auth_token(email, password, device_id):
     """Gets an authentication token from the 7-Eleven API."""
@@ -54,7 +70,7 @@ def get_auth_token(email, password, device_id):
         "password": password,
         "device_id": device_id,
     }
-    response = httpx.post(url, json=payload)
+    response = httpx.post(url, json=payload, headers=get_headers())
     return response.json()
 
 
@@ -66,7 +82,7 @@ def refresh_auth_token(refresh_token):
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
     }
-    response = httpx.post(url, json=payload)
+    response = httpx.post(url, json=payload, headers=get_headers())
     return response.json()
 
 def get_fuel_prices():
@@ -84,8 +100,7 @@ def lockedPrices():
     # Remove all of our previous error messages
     session.pop('ErrorMessage', None)
 
-    headers = {"Authorization": "Bearer " + session["access_token"]}
-    response = httpx.get(BASE_URL + "fuel-lock/locks", headers=headers)
+    response = httpx.get(BASE_URL + "fuel-lock/locks", headers=get_headers(session["access_token"]))
     returnContent = json.loads(response.content)
 
     # An error occours if we have never locked in a price before
@@ -141,8 +156,7 @@ def lockedPrices():
 def getStores():
     # Get a list of all of the stores and their features from the 7-Eleven server.
     # We will use this for our coordinates for a manual lock in
-    headers = {"Authorization": "Bearer " + session["access_token"]}
-    response = httpx.get(BASE_URL + "store/stores", headers=headers)
+    response = httpx.get(BASE_URL + "store/stores", headers=get_headers(session["access_token"]))
     return response.content
 
 def getStoreAddress(storePostcode):
@@ -159,3 +173,22 @@ def getStoreAddress(storePostcode):
 
 if __name__ == '__main__':
     print("This should be run through app.py")
+
+
+import petrolmate
+
+def get_cheapest_nationwide_prices():
+    """Gets the cheapest 7-Eleven fuel prices nationwide from Petrolmate."""
+    return petrolmate.get_cheapest_7eleven_stations()
+
+def getStoreAddressBySuburb(suburb):
+    # Open the stores.json file and read it as a JSON file
+    if not os.path.exists('./stores.json'):
+        return None
+    with open('./stores.json', 'r') as f:
+        stores = json.load(f)
+
+    for store in stores['Diffs']:
+        if store['Suburb'].upper() == suburb.upper():
+            return str(store['Latitude']), str(store['Longitude'])
+    return None

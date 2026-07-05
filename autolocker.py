@@ -99,8 +99,7 @@ def search_pzt():
 
 # Check if we have a current fuel lock
 def check_fuellock(access_token):
-    headers = {"Authorization": "Bearer " + access_token}
-    response = httpx.get(functions.BASE_URL + "fuel-lock/locks", headers=headers)
+    response = httpx.get(functions.BASE_URL + "fuel-lock/locks", headers=functions.get_headers(access_token))
     returnContent = json.loads(response.content)
     return returnContent
 
@@ -135,10 +134,18 @@ def start_lockin():
     # If we have auto lock enabled, and are logged in but haven't saved a fuel lock yet, then proceed.
     if auto_lock_enabled and access_token and not fuel_lock_saved:
 
-        # Search OzBargain for a new deal first, it may be posted there first
-        if(not search_ozbargain()):
-            # Search ProjectZeroThree since OzBargain has no results
-            search_pzt()
+
+        # Search Petrolmate for the cheapest nationwide price
+        cheapest_stations = functions.get_cheapest_nationwide_prices()
+        if cheapest_stations:
+            # We take the absolute cheapest one
+            best_station = cheapest_stations[0]
+            suburb = best_station['suburb']
+            pump_price = best_station['price']
+            print(f"Cheapest station found via Petrolmate: {best_station['name']} in {suburb} at {pump_price}c")
+        else:
+            suburb = None
+
 
         # If there is a location deal
         if(suburb):
@@ -158,7 +165,7 @@ def start_lockin():
             # The payload to start the lock in process.
             payload = '{"LastStoreUpdateTimestamp":' + str(int(time.time())) + ',"Latitude":"' + str(latitude) + '","Longitude":"' + str(longitude) + '"}'
             headers = {"Authorization": "Bearer " + access_token}
-            response = httpx.post(functions.BASE_URL + "fuel-lock/start-session", data=payload, headers=headers)
+            response = httpx.post(functions.BASE_URL + "FuelLock/StartSession", data=payload, headers=functions.get_headers(access_token))
 
             # Get the response content so we can check the fuel price
             returnContent = response.content
@@ -191,7 +198,7 @@ def start_lockin():
                     # Lets start the actual lock in process
                     payload = '{"AccountId":"' + config['Account']['account_id'] + '","FuelType":' + str(wanted_fuel_type) + ',"NumberOfLitres":"' + str(NumberOfLitres) + '"}'
                     headers = {"Authorization": "Bearer " + access_token}
-                    response = httpx.post(functions.BASE_URL + "fuel-lock/confirm", data=payload, headers=headers)
+                    response = httpx.post(functions.BASE_URL + "FuelLock/Confirm", data=payload, headers=functions.get_headers(access_token))
                     returnContent = json.loads(response.content)
 
                     try:

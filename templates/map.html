@@ -1,0 +1,95 @@
+{% extends "index.html" %}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<div class="automanual" align="center">
+    <a href="/">Home</a> | <a id="aauto" href="#">Automatic</a> | <a id="aman" href="#">Manual</a> | <a href="/map">Map</a>
+    <hr>
+</div>
+
+<div id="map" style="height: 500px; width: 100%; border-radius: 10px; margin-bottom: 20px;"></div>
+
+<div id="store-details" style="display: none; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+    <h4 id="selected-store-name"></h4>
+    <p id="selected-store-address"></p>
+    <div id="prices-container" style="margin-top: 10px;">
+        <p>Loading prices...</p>
+    </div>
+</div>
+
+<script>
+    var map = L.map('map').setView([-25.2744, 133.7751], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    var markers = L.layerGroup().addTo(map);
+
+    fetch('/api/stores')
+        .then(response => response.json())
+        .then(stores => {
+            stores.forEach(store => {
+                if (store.lat && store.lng) {
+                    var marker = L.marker([store.lat, store.lng]);
+                    marker.bindPopup("<b>" + store.name + "</b><br>" + store.suburb);
+                    marker.on('click', function() {
+                        showStoreDetails(store);
+                    });
+                    markers.addLayer(marker);
+                }
+            });
+        });
+
+    function showStoreDetails(store) {
+        document.getElementById('store-details').style.display = 'block';
+        document.getElementById('selected-store-name').innerText = store.name;
+        document.getElementById('selected-store-address').innerText = store.address + ", " + store.suburb + " " + store.postcode;
+
+        var pricesContainer = document.getElementById('prices-container');
+        pricesContainer.innerHTML = '<p>Loading prices...</p>';
+
+        fetch('/api/store_prices/' + store.id)
+            .then(response => response.json())
+            .then(data => {
+                var html = '<table class="table" style="color: white;">';
+                html += '<thead><tr><th>Fuel</th><th>Price</th><th>Action</th></tr></thead><tbody>';
+
+                // Usually data contains FuelPrices array
+                if (data.FuelPrices) {
+                    data.FuelPrices.forEach(fp => {
+                        html += '<tr>';
+                        html += '<td>' + getFuelName(fp.Ean) + '</td>';
+                        html += '<td>' + fp.Price + ' c/L</td>';
+                        html += '<td><form action="/lockin" method="POST" style="display:inline;">';
+                        html += '<input type="hidden" name="fueltype" value="' + fp.Ean + '">';
+                        html += '<input type="hidden" name="postcode" value="' + store.postcode + '">';
+                        html += '<button type="submit" name="submit" value="manual" class="btn btn-xs btn-success">Lock In</button>';
+                        html += '</form></td>';
+                        html += '</tr>';
+                    });
+                } else {
+                    html += '<tr><td colspan="3">No prices available</td></tr>';
+                }
+                html += '</tbody></table>';
+                pricesContainer.innerHTML = html;
+            })
+            .catch(err => {
+                pricesContainer.innerHTML = '<p>Error loading prices.</p>';
+            });
+    }
+
+    function getFuelName(ean) {
+        var lookup = {
+            '52': 'Special Unleaded',
+            '53': 'Special Diesel',
+            '54': 'Autogas',
+            '55': 'Extra 95',
+            '56': 'Supreme+ 98',
+            '57': 'Special E10'
+        };
+        return lookup[ean] || 'Unknown (' + ean + ')';
+    }
+</script>
+{% endblock %}
