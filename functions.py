@@ -37,7 +37,7 @@ You can set or change any these environmental variables in settings.py
 '''''''''''''''''''''''''''
 API_KEY = os.getenv('API_KEY',settings.API_KEY)
 TZ = os.getenv('TZ', settings.TZ)
-BASE_URL = os.getenv('BASE_URL',settings.BASE_URL)
+BASE_URL = os.getenv('BASE_URL', settings.BASE_URL)
 PRICE_URL = os.getenv('PRICE_URL', 'https://projectzerothree.info/api.php?format=json')
 FUELPRICE_API_URL = os.getenv('FUELPRICE_API_URL', PRICE_URL)
 DEVICE_NAME = os.getenv('DEVICE_NAME', settings.DEVICE_NAME)
@@ -59,7 +59,7 @@ def get_headers(access_token=None):
     return headers
 OS_VERSION = os.getenv('OS_VERSION', settings.OS_VERSION)
 APP_VERSION = os.getenv('APP_VERSION', settings.APP_VERSION)
-USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36"
+USER_AGENT = "Mozilla/5.0 (Linux; Android 13; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"
 
 def get_auth_token(email, password, device_id):
     """Gets an authentication token from the 7-Eleven API."""
