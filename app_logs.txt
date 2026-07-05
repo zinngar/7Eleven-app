@@ -1,0 +1,16 @@
+Note: You have not set an API key. You will not be able to use Google to find a stores coordinates.
+But you can still use the manual search if you know the postcode to the store you want to lock in from.
+
+
+
+
+
+Note: You have not set a device ID. A random one will be set when you login.
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.2:5000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [05/Jul/2026 01:47:43] "HEAD / HTTP/1.1" 200 -
