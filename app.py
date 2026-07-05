@@ -72,7 +72,7 @@ config.read("./autolock.ini")
 #app.config['BASIC_AUTH_USERNAME'] = 'petrol'
 #app.config['BASIC_AUTH_PASSWORD'] = 'lockit'
 #basic_auth = BasicAuth(app)
-app.secret_key = os.urandom(12)
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(12))
 
 @app.route('/')
 def index():
@@ -458,18 +458,19 @@ def api_store_prices(store_id):
         return response.content
     except:
         return jsonify({"error": "Could not fetch prices"}), 500
+
+# Initialize scheduler
+if os.environ.get('START_SCHEDULER', 'true').lower() == 'true':
+    if not os.environ.get('WERKZEUG_RUN_MAIN') == 'true': # Avoid running twice in debug mode
+        if(functions.TZ in [None,""]):
+            scheduler = BackgroundScheduler(timezone='UTC')
+        else:
+            scheduler = BackgroundScheduler(timezone=functions.TZ)
+        # Start the price search thread and run it every 30 minutes
+        scheduler.add_job(autolocker.start_lockin, 'interval', seconds=1800)
+        scheduler.start()
+
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(12))
+
 if __name__ == '__main__':
-    # Start the autosearch scheduler
-    if(functions.TZ in [None,""]):
-        scheduler = BackgroundScheduler(timezone='UTC')
-    else:
-        scheduler = BackgroundScheduler(timezone=functions.TZ)
-    # Start the price search thread and run it every 30 minutes
-    scheduler.add_job(autolocker.start_lockin, 'interval', seconds=1800)
-    scheduler.start()
-
-    app.secret_key = os.urandom(12)
-    app.run(host='0.0.0.0')
-
-    # Uncomment to enable HTTPS/SSL and comment out the line above
-    #app.run(host='0.0.0.0',port=443,ssl_context=context)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
