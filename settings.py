@@ -42,7 +42,7 @@ TZ="UTC"
 BASE_URL="https://api.7eleven.com.au/v1/"
 
 # PRICE_URL: FuelPrice.io API
-FUELPRICE_API_URL="https://api.fuelprice.io/v1/fuel/prices"
+PRICE_URL="https://projectzerothree.info/api.php?format=json"
 
 # Device name - Samsung Galaxy S10. You can change this to any device you want.
 DEVICE_NAME="SM-G973FZKAXSA"
