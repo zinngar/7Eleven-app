@@ -39,7 +39,7 @@ API_KEY=""
 TZ="UTC"
 
 # BASE_URL: 7-11 Mobile Application API End Point
-BASE_URL="https://api.7eleven.com.au/v1/"
+BASE_URL="https://mobile-api.7eleven.com.au/v1/"
 
 # PRICE_URL: FuelPrice.io API
 PRICE_URL="https://projectzerothree.info/api.php?format=json"
