@@ -1,5 +1,5 @@
 # Live Demo
-[Click here to view the live app](https://seven-eleven-app-jules.onrender.com)
+[Click here to view the live app](https://seven-eleven-app-live.onrender.com)
 
 # 7-Eleven Python
 What is this program? This is an extremely simple program to use that lets you lock in a fuel price from the comfort of your computer. Using this is easier than using the mock location removed APK that is floating around the internet because you do not need to use any other apps to fake a GPS location, and it universally works whether you are using an iPhone or an Android device! 7-Eleven Python will also automatically lock in the maximum amount of fuel that you are allowed to lock in. For instance if you have $38.97 in your account and fuel costs $1.13 a litre you will be able to lock in 35 litres.
