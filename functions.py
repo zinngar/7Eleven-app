@@ -38,7 +38,8 @@ You can set or change any these environmental variables in settings.py
 API_KEY = os.getenv('API_KEY',settings.API_KEY)
 TZ = os.getenv('TZ', settings.TZ)
 BASE_URL = os.getenv('BASE_URL',settings.BASE_URL)
-FUELPRICE_API_URL = os.getenv('FUELPRICE_API_URL',settings.FUELPRICE_API_URL)
+PRICE_URL = os.getenv('PRICE_URL', 'https://projectzerothree.info/api.php?format=json')
+FUELPRICE_API_URL = os.getenv('FUELPRICE_API_URL', PRICE_URL)
 DEVICE_NAME = os.getenv('DEVICE_NAME', settings.DEVICE_NAME)
 
 def get_headers(access_token=None):
@@ -86,10 +87,10 @@ def refresh_auth_token(refresh_token):
     return response.json()
 
 def get_fuel_prices():
-    """Gets fuel prices from the FuelPrice.io API."""
-    headers = {"Authorization": "Bearer " + settings.FUELPRICE_API_KEY}
+    """Gets fuel prices from the FuelPrice.io API (now updated to PZT)."""
+    headers = {"user-agent": USER_AGENT}
     try:
-        response = httpx.get(FUELPRICE_API_URL, headers=headers)
+        response = httpx.get(FUELPRICE_API_URL, headers=headers, follow_redirects=True)
         return response.json()
     except (httpx.ConnectError, json.JSONDecodeError):
         return []
