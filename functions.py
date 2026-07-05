@@ -37,7 +37,7 @@ You can set or change any these environmental variables in settings.py
 '''''''''''''''''''''''''''
 API_KEY = os.getenv('API_KEY',settings.API_KEY)
 TZ = os.getenv('TZ', settings.TZ)
-BASE_URL = os.getenv('BASE_URL', settings.BASE_URL)
+BASE_URL = os.getenv('BASE_URL',settings.BASE_URL)
 PRICE_URL = os.getenv('PRICE_URL', 'https://projectzerothree.info/api.php?format=json')
 FUELPRICE_API_URL = os.getenv('FUELPRICE_API_URL', PRICE_URL)
 DEVICE_NAME = os.getenv('DEVICE_NAME', settings.DEVICE_NAME)
